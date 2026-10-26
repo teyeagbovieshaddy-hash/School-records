@@ -37,3 +37,49 @@ async function setAsg(id,v){var cs=v.split(',').map(function(x){return x.trim()}
 async function newYear(){
   var y=$('#ny').value.trim();if(!y){$('#ny').focus();return}
   if(!newYear.a){newYear.a=1;$('#nyb').textContent='Tap again to confirm';return}
+newYear.a=0;$('#nyb').textContent='Working...';
+  for(var i=0;i<S.students.length;i++){var x=S.students[i],v=$('#pr_'+x.id).value;
+    if(v==='p'){var n=nextCls(x.cls);if(n)await sb.from('students').update({cls:n}).eq('id',x.id)}else if(v==='l')await sb.from('students').update({active:false}).eq('id',x.id)}
+  ok(await sb.from('settings').update({year:y,term:'Term 1'}).eq('id',1));await loadAll();tab='home';render()
+}
+function home(){
+  var exp=0,col=0;S.students.forEach(function(s){exp+=s.fee;col+=paid(s.id)});
+  var rec=S.payments.slice(-5).reverse().map(function(p){return '<tr><td>'+esc(p.date)+'</td><td>'+esc(nm(p.sid))+'</td><td>'+m(p.amt)+'</td></tr>'}).join('')||'<tr><td class="mu">No payments yet</td></tr>';
+  var h='<div class="g"><div class="k"><span class="mu">Pupils</span><b>'+S.students.length+'</b></div><div class="k"><span class="mu">Expected this term</span><b>'+m(exp)+'</b></div><div class="k"><span class="mu">Collected this term</span><b class="ok">'+m(col)+'</b></div><div class="k"><span class="mu">Outstanding</span><b class="bad">'+m(exp-col)+'</b></div></div><div class="c" style="margin-top:12px"><h2>Recent payments</h2><div class="t"><table>'+rec+'</table></div></div>';
+  if(can('admin')){h+='<div class="c"><h2>School settings</h2><label>School name</label><input id="ss" value="'+esc(S.school)+'"><label>Academic year</label><input id="sy" value="'+esc(S.year)+'"><label>Current term</label><input id="st" value="'+esc(S.tn)+'"><label>Next term begins</label><input id="sn" value="'+esc(S.next)+'"><label>Class score out of / exam score out of</label><div style="display:flex;gap:6px"><input id="cw" type="number" value="'+S.cw+'"><input id="ew" type="number" value="'+S.ew+'"></div>';
+    ['early','primary','jhs'].forEach(function(k){h+='<label style="margin-top:14px"><b>'+DEF[k].n+'</b>: subjects, comma separated</label><input id="sb_'+k+'" value="'+esc(S.levels[k].subs.join(', '))+'"><label>Grades: lowest score, grade, remark (one per line)</label><textarea id="sc_'+k+'" rows="5">'+esc(S.levels[k].sc)+'</textarea>'});
+    h+='<div class="r"><button class="p" onclick="setSet()">Save</button></div></div>'}
+  return h
+}
+function scoresV(){
+  var co=classes(),subs=cls?subsOf(cls):[];if(!sub||subs.indexOf(sub)<0)sub=subs[0];
+  var so=subs.map(function(j){return '<option'+(j===sub?' selected':'')+'>'+esc(j)+'</option>'}).join('');
+  var rows=S.students.filter(function(x){return x.cls===cls}).map(function(x){var o=sc(x.id,sub)||{},t=tot(x.id,sub);
+    return '<tr><td>'+esc(x.name)+'</td><td><input class="sm" type="number" inputmode="decimal" value="'+(o.c==null?'':o.c)+'" onchange="setSc(this,\''+x.id+'\',\'c\')"></td><td><input class="sm" type="number" inputmode="decimal" value="'+(o.e==null?'':o.e)+'" onchange="setSc(this,\''+x.id+'\',\'e\')"></td><td id="t'+x.id+'">'+(t==null?'':t)+'</td></tr>'}).join('')||'<tr><td class="mu">No classes assigned to you yet. Ask the admin.</td></tr>';
+  return '<div class="c"><h2>Enter scores · '+esc(S.term)+'</h2><label>Class</label><select onchange="cls=this.value;render()">'+co+'</select><label>Subject</label><select onchange="sub=this.value;render()">'+so+'</select><div class="t" style="margin-top:8px"><table><tr><th>Pupil</th><th>Class /'+S.cw+'</th><th>Exam /'+S.ew+'</th><th>Total</th></tr>'+rows+'</table></div><p class="mu">Each box saves when you leave it.</p></div>'
+}
+function staffV(){
+  var rows=S.staff.map(function(p){var cs=S.asg.filter(function(a){return a.uid===p.id}).map(function(a){return a.cls}).join(', ');
+    return '<tr><td>'+esc(p.email)+'</td><td><select onchange="setRole(\''+p.id+'\',this.value)"'+(p.id===me.id?' disabled':'')+'>'+['admin','accounts','teacher'].map(function(r){return '<option'+(p.role===r?' selected':'')+'>'+r+'</option>'}).join('')+'</select></td><td><input value="'+esc(cs)+'" placeholder="e.g. Basic 3, Basic 4" onchange="setAsg(\''+p.id+'\',this.value)"></td></tr>'}).join('');
+  return '<div class="c"><h2>Staff</h2><p class="mu">Add new staff in Supabase (Authentication > Users > Add user). Give each teacher their classes, separated by commas. Class names: '+CL.join(', ')+'.</p><div class="t"><table><tr><th>Email</th><th>Role</th><th>Classes</th></tr>'+rows+'</table></div></div>'
+}
+function yearV(){
+  var rows=S.students.map(function(x){var n=nextCls(x.cls),d=n?'p':x.cls==='JHS 3'?'l':'r';
+    return '<tr><td>'+esc(x.name)+'</td><td>'+esc(x.cls)+'</td><td><select id="pr_'+x.id+'"><option value="p"'+(d==='p'?' selected':'')+(n?'':' disabled')+'>Promote to '+esc(n||'-')+'</option><option value="r"'+(d==='r'?' selected':'')+'>Repeat class</option><option value="l"'+(d==='l'?' selected':'')+'>Left school</option></select></td></tr>'}).join('')||'<tr><td class="mu">No pupils</td></tr>';
+  return '<div class="c"><h2>Start a new academic year</h2><p class="mu">Current: '+esc(S.year)+'. Choose what happens to each pupil, then confirm. Old scores and reports stay saved under their year. Left pupils are kept but hidden. Balances start fresh each term.</p><label>New academic year</label><input id="ny" placeholder="e.g. 2027/2028"><div class="t" style="margin-top:8px"><table><tr><th>Pupil</th><th>Class</th><th>Action</th></tr>'+rows+'</table></div><div class="r"><button class="p" id="nyb" onclick="newYear()">Start new year</button></div></div>'
+}
+function card(){
+  var s=S.students.filter(function(x){return x.id===cardId})[0];if(!s)return '';
+  var r=S.rem[S.term+'|'+s.id]||{},l=pos(s.cls),q2=l.filter(function(x){return x.s.id===s.id})[0],den=S.cw+S.ew;
+  var rows=subsOf(s.cls).map(function(j){var x=sc(s.id,j)||{},t=tot(s.id,j),g=t==null?{g:'',r:''}:gradeOf(s.cls,t/den*100);
+    return '<tr><td>'+esc(j)+'</td><td>'+(x.c==null?'':x.c)+'</td><td>'+(x.e==null?'':x.e)+'</td><td>'+(t==null?'':t)+'</td><td>'+esc(g.g)+'</td><td>'+spos(s.cls,j,s.id)+'</td><td>'+esc(g.r)+'</td></tr>'}).join('');
+  var inp=function(lb,k,ro){return '<label>'+lb+'</label><input value="'+esc(r[k])+'"'+(ro?' readonly':'')+' onchange="setRem(\''+k+'\',this.value)">'};
+  return '<div id="rc" class="cd"><div><div class="rh"><img src="'+LOGO+'"><h2 style="margin:4px 0 0">'+esc(S.school)+'</h2><b>TERMINAL REPORT</b></div><table style="margin-top:8px"><tr><td>Name: <b>'+esc(s.name)+'</b></td><td>Class: <b>'+esc(s.cls)+'</b></td></tr><tr><td>Academic year: <b>'+esc(S.year)+'</b></td><td>Term: <b>'+esc(S.tn)+'</b></td></tr><tr><td>No. on roll: <b>'+l.length+'</b></td><td>Position: <b>'+ord(q2.p)+'</b></td></tr><tr><td colspan="2">Next term begins: <b>'+esc(S.next)+'</b></td></tr></table><div class="t" style="margin-top:8px"><table><tr><th>Subject</th><th>Class /'+S.cw+'</th><th>Exam /'+S.ew+'</th><th>Total /'+den+'</th><th>Grade</th><th>Pos.</th><th>Remarks</th></tr>'+rows+'</table></div><p>Overall total: <b>'+q2.t+'</b></p>'+inp('Attendance','att')+inp('Conduct','con')+inp('Interest','int')+inp('Class teacher’s remarks','rem')+inp('Head teacher’s remarks','head',!can('admin'))+'<div class="sig"><span>Class teacher</span><span>Head teacher</span></div><div class="r np"><button onclick="try{window.print()}catch(e){}">Print</button><button class="p" onclick="cardId=null;render()">Close</button></div></div></div>'
+}
+function render(){
+  var v={home:home,stu:studs,fee:fees,rep:reps,sco:scoresV,rpt:reportsV,stf:staffV,yr:yearV}[tab]();
+  var nav=TABS[me.role].map(function(t){return '<button class="'+(tab===t?'on':'')+'" onclick="go(\''+t+'\')">'+LBL[t]+'</button>'}).join('');
+  var f=document.activeElement&&document.activeElement.placeholder==='Search name, class, guardian';
+  $('#app').innerHTML='<div class="top"><div class="lg"><img src="'+LOGO+'"><div><h1>'+esc(S.school)+'</h1><div class="mu">'+esc(S.year)+' · '+esc(S.tn)+' · '+esc(me.email)+' ('+me.role+')</div></div></div><button onclick="out()">Sign out</button></div><nav>'+nav+'</nav>'+v+receipt()+card();
+  if(f){var i=$('input[placeholder]');if(i){i.focus();i.setSelectionRange(i.value.length,i.value.length)}}
+}
