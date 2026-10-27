@@ -112,3 +112,14 @@ function render(){
   $('#app').innerHTML='<div class="top"><div class="lg"><img src="'+LOGO+'"><div><h1>'+esc(S.school)+'</h1><div class="mu">'+esc(S.year)+' · '+esc(S.tn)+' · '+esc(me.email)+' ('+me.role+')</div></div></div><button onclick="out()">Sign out</button></div><nav>'+nav+'</nav>'+v+receipt()+card();
   if(f){var i=$('input[placeholder]');if(i){i.focus();i.setSelectionRange(i.value.length,i.value.length)}}
 }
+/* ===== EXTRAS: import pupils + installable app ===== */
+var _st2=studs;
+studs=function(){return _st2()+'<div class="c"><details><summary>📥 Import existing pupils</summary><p class="mu">One pupil per line: Name, Class, Guardian, Phone, Fee. You can paste straight from Excel. Class must be one of: '+CL.join(', ')+'.</p><textarea id="imp" rows="8" placeholder="Agbovie Bright, JHS 2, Mr Agbovie, 0240000000, 400"></textarea><div class="r"><button class="p" onclick="importPupils()">Import</button></div></details></div>'};
+async function importPupils(){
+  var ls=$('#imp').value.split('\n').map(function(x){return x.trim()}).filter(Boolean),rows=[],bad=[];
+  ls.forEach(function(l){var a=l.split(/\t|,/).map(function(x){return x.trim()});if(!a[0]||CL.indexOf(a[1])<0){bad.push(l);return}rows.push({name:a[0],cls:a[1],guardian:a[2]||'',phone:a[3]||'',fee:parseFloat(a[4])||0})});
+  if(bad.length){note('Check the class name on: '+bad.slice(0,3).join(' | '));return}
+  if(!rows.length)return;
+  var r=await sb.from('students').insert(rows);if(!ok(r))return;await loadAll();render();note('Imported '+rows.length+' pupils')
+}
+(function(){var l=document.createElement('link');l.rel='manifest';l.href='manifest.json';document.head.appendChild(l);if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js')})();
